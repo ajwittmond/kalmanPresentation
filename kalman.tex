@@ -1,0 +1,115 @@
+
+
+\documentclass{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage{bibentry,cite,amsmath}
+
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\operatorname{E}}
+\newcommand{\Var}{\operatorname{Var}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newtheorem{proposition}{proposition}
+% Information to be included in the title page:
+\title{The Kalman Filter}
+\author{Alexander Wittmond}
+\institute{University of Missouri}
+\date{\today}
+
+\AtBeginSection[]
+{
+  \begin{frame}
+    \frametitle{Table of Contents}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\usetheme{Hannover}
+\allowdisplaybreaks
+\begin{document}
+
+\frame{\titlepage}
+
+\section{The Filtering Problem}
+\begin{frame}
+
+  Classically, time dependent systems are modeled by:
+
+  \only<2>{
+  Differential equations in the continuous case
+  \begin{align}
+    f &: \R^n \times \R \to \R^n \\
+    \frac{dx}{dt} &= f(x,t)
+  \end{align}
+
+  Solved by:
+  \begin{align}
+    x : \R \to \R^n
+  \end{align}
+}
+  \only<3>{
+
+    Difference equations in the discrete case
+
+    \begin{align}
+      f &: \Z \times \R \to \R^n \\
+      x_t &= f(x_{t-1},t)
+    \end{align}
+
+    Solved by:
+    \begin{align}
+      \{ x_t \}_{t\in \Z}
+    \end{align}
+    }
+  \end{frame}
+
+  \begin{frame}
+    TODO: add pictures of noisy measurement
+    \begin{itemize}
+    \item  reality is more complex
+      \pause
+    \item  measurements of a system have a maximum resolution
+      \pause
+    \item  beyond that resolution we see random noise
+      \pause
+    \item  so our observations are better modeled by a random variable
+      $X$ on some probability space $(\Omega,P)$ than a point in $\R^n$
+    \end{itemize}
+  \end{frame}
+
+  \begin{frame}
+    We can in corporate noise into our models by using:
+
+    \only<2>{
+      
+      A stochastic differential equation in the continuous case
+      \begin{align}
+        dx_t = f(x_t,t) dt + g(x_t,t) d\beta
+      \end{align}
+
+      meaning
+
+      \begin{align}
+        x_t - x_0 = \int_0^tf(x_t,t) dt + \int_0^tg(x_t,t) d\beta
+      \end{align}
+
+      solved by a stochastic process
+
+      \begin{align}
+        X &: (\Omega,P) \times \R \to \R^n \\
+        \{X_t &\}_{t\in R} 
+      \end{align}
+    }
+
+
+    \only<3>{
+      
+    }
+  \end{frame}
+\section{The Kalman-Bucy Filter}
+
+\section{An Example}
+
+\end{document}

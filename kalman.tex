@@ -57,7 +57,6 @@
 \end{frame}
 
 \begin{frame}{The problem of noise}
-  TODO: add pictures of noisy measurement
   \begin{itemize}
   \item reality is more complex \pause
   \item measurements of a system have a maximum resolution \pause
@@ -205,8 +204,9 @@
   \only<2>{
     \begin{block}{Prediction between observations}
       \begin{align}
-        \frac{\hat{x}_t^{t_k}}{dt} &= F(t)\hat{x}_t^{t_k} \\
-        \frac{dP^{t_k}}{dt} &= F(t)P^{t_k}_t +  P^{t_k}_t F^T(t) + G(t)Q(t)G^T(t),\quad t_k \leq t < t_{k+1}
+        \frac{d}{dt}{\hat{x}_t^{t_k}} &= F(t)\hat{x}_t^{t_k} \\
+        \frac{d}{dt}P^{t_k} &= F(t)P^{t_k}_t +  P^{t_k}_t F^T(t) + G(t)Q(t)G^T(t) \\
+        t_k &\leq  t < t_{k+1}
       \end{align}
     \end{block}
   }
@@ -231,8 +231,8 @@
 \item To integrate the prediction equations we need to fix the boundary
   conditions $\hat{x}_{t_0}$, $P_{t_0}$
    \pause
-  \item Calculating the Kalman gain is $O(n^2)$ in the dimension of the
-    measurement
+  \item Calculating the Kalman gain is $O(n^3)$ in the dimension of the
+    measurement due to the matrix inversion
     \pause
   \item The Kalman gain can be precomputed
     \pause 
@@ -257,25 +257,122 @@
   \end{equation}
   then we can set $ \omega_t = \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) d\beta_\tau $ 
   \begin{equation}
-    \mathbb{E}[\omega_t\omega_t^T] = \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) Q(r) G^T(r) \phi^T(t_k,\tau)  d\tau
+    \mathbb{E}[\omega_t\omega_t^T] = \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) Q(r) G^T(r) \phi^T(t_k,\tau)  d\tau = Q_k
   \end{equation}
 \end{frame}
 
 \begin{frame}{Discrete system and evolution}
   So we have the discrete system
   \begin{align}
-    x_{t_k} = x_{t_{k-1}}
+    x_{t_k} = \phi(t_k,t_{k-1})x_{t_{k-1}} + \omega_t
+  \end{align}
+  The prediction equations change to
+  \begin{align}
+    \hat{x}^{t_k}_t &= \phi(t,t_k)\hat{x}^{t_k}_{t_k} \\
+    P^{t_k}_t &= \phi(t,t_k)P^{t_k}_{t_k} +  Q_k
   \end{align}
 
 \end{frame}
 
  
-\begin{frame}{Extension to Non-linear Problems}
+\begin{frame}{Extension to Non-Linear Problems}
+  We start with the system
+  \begin{align}
+    dx_t = f(x_t,t)dt + G(t)d\beta_t \\
+    y_k = h(x_{t_k}, t) + \nu_t
+  \end{align}
+  where
+  \begin{equation}
+    \mathbb{E}[d\beta_td\beta^T_t] = Q(t) dt
+  \end{equation}
+  Then we pick a \textbf{reference trajectory} $\bar{x}_{t_0}(t)$ with some given
+  $\bar{x}(t_0)$ such that
+  \begin{equation}
+    \frac{d\bar{x}_{t_0}}{dt}(t) = f(\bar{x}_{t_0}(t),t)
+  \end{equation}
+\end{frame}
 
+\begin{frame}{Extension to Non-Linear Problems}
+  Then we can look at the \textbf{deviation}
+  \begin{equation}
+    \delta x(t) = x(t) - \bar{x}_{t_0}(t) 
+  \end{equation}
+  which statisfies
+  \begin{equation}
+    d(\delta x_t) = (f(x_t,t) - f(\bar{x}_{t_0}(t),t)) dt + G(t) d\beta_t
+  \end{equation}
+  then do a Taylor approximation
+  \begin{equation}
+    f(x_t,t) - f(\bar{x}_t,t) \simeq Df(\bar{x}_{t_0}(t),t)  \delta x_t 
+  \end{equation}
+  Then we have the linear equation
+  \begin{equation}
+    d(\delta x_t) = Df(\bar{x}_{t_0} , t) \delta x_t dt + G(t) d\beta_t
+  \end{equation}
+\end{frame}
+
+\begin{frame}{Extension to Non-Linear Problems}
+  We can linearize the measurement in the same way to get
+  \begin{align}
+    \delta y_{t_k} &= y_{t_k} - h(\bar{x}_{t_0}(t_k), t_k) + \nu_k \\
+    \delta y_{t_k} &\simeq Dh(\bar{x}_{t_0}(t_k),t_k) \delta x_{t_k} + \nu_k
+  \end{align}
+  Then we can process the system
+  \begin{align}
+    d(\delta x_t) &= Df(\bar{x}_{t_0}(t),t) \delta x_t dt + G(t) d\beta_t \\
+    \delta y_{t_k} &\simeq Dh(\bar{x}_{t_0}(t_k),t_k) \delta x_{t_k} + \nu_k
+  \end{align}
+  with  linear filter.
+\end{frame}
+
+\begin{frame}{Extension to Non-Linear Problems}
+  We can then estimate $\hat{x}_{t_k}^{t_k}$ with
+  \begin{align}
+    \hat{x}_{t_k}^{t_k} = \bar{x}_{t_0}(t_k) + \hat{\delta x_{t_k}^{t_k}}
+  \end{align}
+  Our variance matrix $P_{t_k}^{t_k}$ estimates the variance of this
+  estimation.
+\end{frame}
+
+\begin{frame}{Extension to Non-Linear Problems}
+  If at every observation $h(t_k)$, we relinearize around our estimate
+  $\hat{x}_{t_k}^{t_k}$ by getting a new reference trajectory $\bar{x}_{t_k}(t)$
+  starting at this point, and then estimate the system using
+
+  
+  \begin{align}
+    d(\delta x_t) &= Df(\bar{x}_{t_k}(t),t_k) \delta x_t dt + G(t) d\beta_t \\
+    \delta y_{t_{k+1}} &\simeq Dh(\bar{x}_{t_k}(t_k),t_k) \delta x_{t_k} + \nu_k
+  \end{align}
+
+  then this is known as the \textbf{Extended Kalman Filter}
 \end{frame}
 
 \begin{frame}{Pros and Cons}
+  \begin{box}{Pros}
+    \begin{itemize}
+     
+    \item Recursiveness causes low memory requirements
+     
+    \item Relatively low cost to computing an update
+     
+    \item Most computationally expensive items can be computed in advance
 
+    \end{itemize}
+  \end{box}
+
+  \begin{box}{Cons}
+    \begin{itemize}
+
+    \item  Is not adaptive, relies on the accuracy of the underlying model
+
+    \item  Can not capture multi-modalities
+
+    \item  Suffers from filter divergence
+
+    \end{itemize}
+
+  \end{box}
 \end{frame}
   
 

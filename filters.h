@@ -5,8 +5,9 @@
 #include <cmath>
 
 /**
- * This abstract class represent a deterministic model
+ * This abstract class represent a deterministic model for some vector valued function
  */
+template<class V>
 class Model{
 protected:
   double current_t;
@@ -18,7 +19,7 @@ public:
   /**
    * Sets the current trajectory to start at x at time t
    */
-  virtual void set_initial_conditions(double t, arma::vec x){
+  virtual void set_initial_conditions(double t, V x){
     current_t = t;
     current_state = x;
   }
@@ -28,7 +29,7 @@ public:
    * subsequent values will be calculated starting at this point.
    * The default implementation uses Runge-Kutta, can be overridden to allow for exact solutions
    */
-  virtual arma::vec extrapolate(int steps,double t);
+  virtual V extrapolate(int steps,double t);
 
   /**
    *  Returns the derivative of the state vector at this point and time
@@ -39,7 +40,7 @@ public:
    *  f(x_n,n) where
    *  \f[x_{n+1} = f(x_n,n) + \nu_n \f]
    */
-  virtual arma::vec derivative(double t, arma::vec state) = 0;
+  virtual V derivative(double t, V state) = 0;
 };
 
 /**
@@ -47,7 +48,7 @@ public:
  * \f[x_{n+1} = Ax_n + \nu_n \f]
  * where \f$nu_n \sim N(0,Q_k)\f$ i.i.d
  */
-class LinearDiscreteModel : public Model{
+class LinearDiscreteModel : public Model<arma::vec>{
  public:
   /**
    *  The matrix \f$A\f$ in the above model
@@ -67,7 +68,7 @@ class LinearContinuousModel;
  * Abstract class for models with linear noise (i.e. most usable ones for Kalman
  * Filters and their variants)
  */
-class LinearNoiseModel : public Model {
+class LinearNoiseModel : public Model<arma::vec> {
 public:
   /**
    * The Covariance matrix at a given time
@@ -110,7 +111,7 @@ public:
   virtual arma::mat transform_matrix(double t) = 0;
 
   arma::vec derivative(double t ,arma::vec state) override{
-    return transform_matrix(t);
+    return transform_matrix(t)*state;
   }
 };
 
@@ -129,7 +130,7 @@ class Filter{
    virtual arma::vec filtered_value(double t) = 0;
 
    /**
-    * Update the filter with new data
+    * Update the filter with new data and returns the new estimate for the current time
     */
    virtual arma::vec update(double t, arma::vec) = 0;
 };
@@ -188,26 +189,55 @@ class LinearMeasurement : public LinearizeableMeasurement {
   virtual arma::mat measurement_matrix(double time) = 0;
 };
 
+
+
 /**
  * The classic Kalman filter.  Requires a linear model and measurement as well as a prior
  * estimate of the systems state and covariance (i.e a gaussian prior)
  */
 class KalmanFilter : public Filter{
- private:
+ protected:
+  class CovarianceMatrixModel : Model<arma::mat>{
+    KalmanFilter & filter; // technically not safe but 
+  public:
+
+    CovarianceMatrixModel(KalmanFilter & filter) : filter{filter} {}
+
+    arma::mat derivative(double t, arma::mat state){
+      arma::mat F = filter.model->transform_matrix(t);
+      arma::mat Q = filter.model->noise_matrix(t);
+
+    }
+  };
+
+
   std::unique_ptr<LinearContinuousModel> model;
   std::unique_ptr<LinearMeasurement> measurement;
+  double rate;
 
+  CovarianceMatrixModel mean_model;
 public:
- KalmanFilter(arma::vec prior_position, arma::mat prior_covariance,
-              std::unique_ptr<LinearContinuousModel> model,
+
+  KalmanFilter(double rate,
+               arma::vec prior_position, arma::mat prior_covariance,
+               std::unique_ptr<LinearContinuousModel> model,
                std::unique_ptr<LinearMeasurement> measurement):
-  model(std::move(model)), measurement(std::move(measurement))
+    model(std::move(model)), measurement(std::move(measurement)), rate{rate},
+    mean_model(*this)
     {}
 
- arma::vec filtered_value(double t) override;
+  void set_rate(double rate){
+    this->rate = rate;
+  }
+
+  double get_rate(){
+    return rate;
+  }
+
+  arma::vec filtered_value(double t) override;
 
 
- arma::vec update(double t, arma::vec) override;
+  arma::vec update(double t, arma::vec) override;
 };
 
 /**
@@ -222,7 +252,7 @@ class ExtendedKalmanFilter : public Filter{
  ExtendedKalmanFilter(double rate,arma::vec prior_position, arma::mat prior_covariance,
                         std::unique_ptr<LangevinEquationModel> model,
                         std::unique_ptr<LinearizeableMeasurement> measurement)
-     : perturbationProcessFilter(prior_position,prior_covariance,
+   : perturbationProcessFilter(rate,prior_position,prior_covariance,
                                  model->linear_perturbation_model(0,prior_position,rate),
                     measurement->linearize(0,prior_position)) {}
 
@@ -249,6 +279,7 @@ public:
       double rate, double start_time, arma::vec start_state,
       std::unique_ptr<LangevinEquationModel> langevin_model)
       : langevin_model(std::move(langevin_model)), rate{rate} {
+
     langevin_model->set_initial_conditions(start_time, start_state);
   }
 
@@ -279,16 +310,19 @@ public:
 
 };
 
-template<class F>
-arma::vec runge_kutta_4(int steps, double start_t,double end_t, arma::vec start_state, F derivative) {
+/**
+ * Does Runge-Kutta for some vector type V using a callable F : (double, V) -> V to compute the derivatives
+ */
+template<class V,class F>
+V runge_kutta_4(int steps, double start_t,double end_t, V start_state, F derivative) {
   double time_step = (end_t - start_t) / steps;
   double current_t = start_t;
-  arma::vec current_state = start_state;
+  V current_state = start_state;
   for (int i = 0; i < steps; i++) {
-    arma::vec k1 = derivative(current_t, current_state);
-    arma::vec k2 = derivative(current_t + time_step / 2, (time_step / 2) * k1);
-    arma::vec k3 = derivative(current_t + time_step / 2, (time_step / 2) * k2);
-    arma::vec k4 =
+    V k1 = derivative(current_t, current_state);
+    V k2 = derivative(current_t + time_step / 2, (time_step / 2) * k1);
+    V k3 = derivative(current_t + time_step / 2, (time_step / 2) * k2);
+    V k4 =
         derivative(current_t + time_step, start_state + time_step * k3);
     current_t += time_step;
     current_state += (time_step / 6) * (k1 + 2 * k2 + 2 * k3 + k4);

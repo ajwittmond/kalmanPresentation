@@ -34,6 +34,13 @@ LangevinEquationModel::linear_perturbation_model(double time,
 //KalmanFilter implementation
 //::::::::::::::::::::::::::::::::::
 
+arma::vec KalmanFilter::filtered_value(double t){
+
+}
+
+arma::vec KalmanFilter::update(double t, arma::vec){
+  
+}
 //:::::::::::::::::::::::::::::::::
 
 //::::::::::::::::::::::::::::::::::

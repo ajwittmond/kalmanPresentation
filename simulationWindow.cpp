@@ -1,4 +1,7 @@
+#include <iostream>
+#include <chrono>
 #include "simulationWindow.h"
+
 
 void SimulationWindow::from_file() throw() {
   builder = Gtk::Builder::create();
@@ -9,16 +12,16 @@ void SimulationWindow::from_file() throw() {
   window->set_events(Gdk::ALL_EVENTS_MASK);
   //the timing for the main loop is set here
   timout =
-      Glib::signal_timeout().connect(sigc::mem_fun(*this, &IsingWindow::step),
+      Glib::signal_timeout().connect(sigc::mem_fun(*this, &SimulationWindow::step),
                                      16 /** 60 fps */);
 }
 
-Gtk::Window& IsingWindow::getWindow(){
+Gtk::Window& SimulationWindow::getWindow(){
   return *window;
 }
 
 //main update loop
-bool IsingWindow::step() {
+bool SimulationWindow::step() {
   //time keeping logic
   static std::vector<double> samples(128);
   static auto prev_time = std::chrono::system_clock::now();
@@ -57,14 +60,14 @@ bool IsingWindow::step() {
     prev_time = curr_time;
   }
 
-  if(running->get_active()){
+  if(running){
     //update logic
     static double step_timer = 0;
     step_timer+=dt;
     time+=dt;
 
-    if (step_timer > 1.0 / *step_frequency) {
-      step_timer -= 1.0 / *step_frequency;
+    if (step_timer > 1.0 / STEP_FREQUENCY) {
+      step_timer -= 1.0 / STEP_FREQUENCY;
       // model->step();
       // model->invalidate_rect();
     }

@@ -420,7 +420,7 @@ protected:
                         std::unique_ptr<LinearizeableMeasurement> measurement)
    : perturbationProcessFilter(rate,prior_position,prior_covariance,
                                model->linear_perturbation_model(0,prior_position,rate),
-                               measurement->linearize(0,prior_position)),
+                               measurement->linearize(model)),
      model{model},
      measurement{std::move(measurement)}
   {}

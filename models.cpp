@@ -47,37 +47,72 @@ std::shared_ptr<LangevinEquationModel> OrbitalModel::clone() {
 // RangeMeasurement implementation
 //::::::::::::::::::::::::::::::::::::::
 
-arma::dmat RangeMeasurement::differential(double t, arma::dvec) {}
+arma::dmat RangeMeasurement::differential(double t, arma::dvec state) {
+  arma::dvec rvec = state.subvec(0,1) - position;
+  double r = arma::norm(rvec);
+  return arma::dmat{{
+      rvec(0) / r, rvec(1) / r, 0 , 0
+  }};
+}
 
-std::shared_ptr<LinearizeableMeasurement> RangeMeasurement::clone() {}
+std::shared_ptr<LinearizeableMeasurement> RangeMeasurement::clone() {
+  return std::shared_ptr<LinearizeableMeasurement>(new RangeMeasurement(*this));
+}
 
-arma::dvec RangeMeasurement::measure(double time, arma::dvec state) {}
+arma::dvec RangeMeasurement::measure(double time, arma::dvec state) {
+  return arma::dvec { arma::norm(state.subvec(0,1) - position) };
+}
 
-arma::dmat RangeMeasurement::covariance(double time) {}
-//::::::::::::::::::::::::::::::::::::::
 
-//::::::::::::::::::::::::::::::::::::::
-// RangeMeasurement implementation
-//::::::::::::::::::::::::::::::::::::::
-
-arma::dmat RangeRateMeasurement::differential(double t, arma::dvec) {}
-
-std::shared_ptr<LinearizeableMeasurement> RangeRateMeasurement::clone() {}
-
-arma::dvec RangeRateMeasurement::measure(double time, arma::dvec state) {}
-
-arma::dmat RangeRateMeasurement::covariance(double time) {}
 //::::::::::::::::::::::::::::::::::::::
 
 //::::::::::::::::::::::::::::::::::::::
 // RangeMeasurement implementation
 //::::::::::::::::::::::::::::::::::::::
 
-arma::dmat AnglesMeasurement::differential(double t, arma::dvec) {}
+arma::dmat RangeRateMeasurement::differential(double t, arma::dvec state) {
+  arma::dvec rvec = state.subvec(0, 1) - position;
+  arma::dvec v = state.subvec(2,3);
+  double r_inv = 1/arma::norm(rvec);
+  double r_inv3 = std::pow(r_inv,3);
+  double dx =
+      r_inv * (v(0) + rvec(1) * v(1)) -
+    r_inv3 * rvec(0)*(v(0) * rvec(0) + rvec(1) * v(1));
+  double dy =
+    r_inv * (v(0)*rvec(0) + v(1)) -
+              r_inv3 * rvec(1)*(v(0) * rvec(0) + rvec(1) * v(1));
+  double ddx = r_inv * (rvec(0) + rvec(1) * v(1));
+  double ddy = r_inv * (rvec(0) * v(0) + rvec(1));
+  return arma::dmat{{dx, dy, ddx, ddy}};
+}
 
-std::shared_ptr<LinearizeableMeasurement> AnglesMeasurement::clone() {}
+std::shared_ptr<LinearizeableMeasurement> RangeRateMeasurement::clone() {
+  return std::shared_ptr<LinearizeableMeasurement>(new RangeRateMeasurement(*this));
+}
 
-arma::dvec AnglesMeasurement::measure(double time, arma::dvec state) {}
+arma::dvec RangeRateMeasurement::measure(double time, arma::dvec state) {
+  arma::dvec rvec = state.subvec(0, 1) - position;
+  arma::dvec v = state.subvec(2, 3);
+  double r_inv = 1 / arma::norm(rvec);
+  return arma::dvec{r_inv * (rvec(0) *v(0) + rvec(1) * v(1))};
+}
 
-arma::dmat AnglesMeasurement::covariance(double time) {}
+//::::::::::::::::::::::::::::::::::::::
+
+//::::::::::::::::::::::::::::::::::::::
+// RangeMeasurement implementation
+//::::::::::::::::::::::::::::::::::::::
+
+arma::dmat AnglesMeasurement::differential(double t, arma::dvec state) {
+  return arma::dvec{ plane(0), plane(1), 0 ,0};
+}
+
+std::shared_ptr<LinearizeableMeasurement> AnglesMeasurement::clone() {
+  return std::shared_ptr<LinearizeableMeasurement>(new AnglesMeasurement(*this));
+}
+
+arma::dvec AnglesMeasurement::measure(double time, arma::dvec state){
+  return arma::dvec{arma::dot(plane, state.subvec(0, 1))};
+}
+
 //::::::::::::::::::::::::::::::::::::::

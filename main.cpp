@@ -12,5 +12,5 @@ int main(int argc, char **argv) {
     std::cerr << "failed to load glade file";
   }
 
-  return app->run(ising.getWindow());
+  return app->run(sim.getWindow());
 }

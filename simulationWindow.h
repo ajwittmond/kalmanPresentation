@@ -1,8 +1,10 @@
 #pragma once
 
-#include "model.h"
 #include <gtkmm.h>
 #include <sigc++/sigc++.h>
+
+
+const double STEP_FREQUENCY = 60;
 
 // This is the top level class for the view
 class SimulationWindow : public sigc::trackable {
@@ -18,6 +20,9 @@ protected:
   Gtk::Window *window;
   sigc::connection timout;
 
+  Glib::RefPtr<Gtk::Builder> builder;
+
+  bool running;
   // main update loop
   bool step();
 

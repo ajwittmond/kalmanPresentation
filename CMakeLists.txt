@@ -10,18 +10,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Use the package PkgConfig to detect GTK+ headers/library files
 FIND_PACKAGE(PkgConfig REQUIRED)
+PKG_CHECK_MODULES(GTK3 REQUIRED gtkmm-3.0)
 
 SET(CMAKE_CXX_FLAGS "-O3")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-INCLUDE_DIRECTORIES( ${PROJECT_SOURCE_DIR})
-LINK_DIRECTORIES(${PROJECT_SOURCE_DIR})
+# Setup CMake to use GTK+, tell the compiler where to look for headers
+# and to the linker where to look for libraries
+INCLUDE_DIRECTORIES(${GTK3_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
+LINK_DIRECTORIES(${GTK3_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR})
 
 
 # add the executable
-add_executable(Filters main.cpp model.cpp filters.cpp)
+add_executable(Filters main.cpp simulation.cpp simulationWindow.cpp filters.cpp)
 
 # Link the target to the GTK+ libraries
-TARGET_LINK_LIBRARIES(Filters armadillo)
+TARGET_LINK_LIBRARIES(Filters armadillo ${GTK3_LIBRARIES})
 target_compile_options(Filters PRIVATE  -rdynamic  -export-dynamic)

@@ -1,8 +1,16 @@
+#include "simulationWindow.h"
+#include <gtkmm.h>
 #include <iostream>
-#include "filters.h"
-#include "model.h"
 
+int main(int argc, char **argv) {
+  auto app = Gtk::Application::create(argc, argv, "kalman.sim");
 
-int main(){
-  std::cout << "hello world";
+  SimulationWindow sim;
+  try {
+    sim.from_file();
+  } catch (Glib::Error e) {
+    std::cerr << "failed to load glade file";
+  }
+
+  return app->run(ising.getWindow());
 }

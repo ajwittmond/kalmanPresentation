@@ -13,13 +13,13 @@ arma::dmat OrbitalModel::differential(double t, arma::vec state) {
   arma::dvec velocity = state.subvec(2, 3);
   double x1 = position(0);
   double x2 = position(1);
-  double r = arma::norm(position);
-  double r3 = std::pow(r, 3);
+  double r2 = arma::dot(position,position);
+  double r4 = std::pow(r2, 2);
   return arma::dmat{
         {0, 0, 1, 0},
         {0, 0, 0, 1},
-        {(-MU * (1 / r) - (x1 * x1 / r3)), -MU * (x1 * x2 / r3)},
-        {-MU *(x1 * x2 / r3), -MU * ((1/r) - (x2*x2/r3))} 
+        {-MU * ((1 / r2) - 2*(x1 * x1 / r4)), -2* MU * (x1 * x2 / r4), 0 ,0 },
+        {-2*MU *(x1 * x2 / r4), -MU * ((1/r2) - 2*(x2*x2/r4)),0 ,0 } 
   };
 }
 
@@ -32,8 +32,12 @@ arma::dmat OrbitalModel::noise_matrix(double t) {
 arma::dvec OrbitalModel::derivative(double t, arma::dvec state) {
   arma::dvec position = state.subvec(0,1);
   arma::dvec velocity = state.subvec(2,3);
-  arma::dvec acceleration = -MU * arma::norm(position) * position;
-  return arma::join_rows(velocity,acceleration);
+  double n = arma::norm(position);
+  arma::dvec acceleration = (-MU * 1/std::pow(n,3)) * position;
+  if(n == 0){
+    acceleration = arma::dvec(2,arma::fill::zeros);
+  }
+  return arma::join_cols(velocity,acceleration);
 }
 
 std::shared_ptr<LangevinEquationModel> OrbitalModel::clone() {

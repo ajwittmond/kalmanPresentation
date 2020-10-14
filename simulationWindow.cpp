@@ -1,6 +1,42 @@
 #include <iostream>
 #include <chrono>
+#include <memory>
+#include "filters.h"
+#include "gtkmm/drawingarea.h"
+#include "models.h"
 #include "simulationWindow.h"
+
+const double SAMPLE_RATE = 1000;
+void SimulationWindow::initialize_simulation(Gtk::DrawingArea * area){
+  arma::dvec initial_state{0,4,1,0};
+  std::shared_ptr<LangevinEquationModel> model(new OrbitalModel(SAMPLE_RATE,0,initial_state));
+
+  arma::dvec state_prior{0.001,4.03,0.98,0.1};
+  arma::dmat prior_covariance{{0.1,0,0,0},{0,0.1,0,0},{0,0,0.1,0},{0,0,0,0.1}};
+
+  std::shared_ptr<LangevinEquationModel> filter_model(
+      new OrbitalModel(SAMPLE_RATE, 0, state_prior));
+  arma::dvec sensor_position{0,1};
+
+
+  std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements{
+    std::shared_ptr<LinearizeableMeasurement>(new RangeMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
+    std::shared_ptr<LinearizeableMeasurement>(new RangeRateMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
+      std::shared_ptr<LinearizeableMeasurement>(new AnglesMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
+    };
+
+  std::shared_ptr<LinearizeableMeasurement> measurement(new CompositeLinearizeableMeasurement(measurements));
+
+  ExtendedKalmanFilter *ekf = new ExtendedKalmanFilter(
+        SAMPLE_RATE, state_prior, prior_covariance, filter_model, measurement);
+
+  std::shared_ptr<Filter>
+      filter(ekf);
+
+
+  this->simulation = std::unique_ptr<Simulation>(new Simulation(
+          area,filter,std::dynamic_pointer_cast<Model<arma::dvec>>(model), 1.0 /STEP_FREQUENCY));
+}
 
 
 void SimulationWindow::from_file() throw() {
@@ -14,6 +50,8 @@ void SimulationWindow::from_file() throw() {
   timout =
       Glib::signal_timeout().connect(sigc::mem_fun(*this, &SimulationWindow::step),
                                      16 /** 60 fps */);
+
+  initialize_simulation(area);
 }
 
 Gtk::Window& SimulationWindow::getWindow(){
@@ -22,6 +60,7 @@ Gtk::Window& SimulationWindow::getWindow(){
 
 //main update loop
 bool SimulationWindow::step() {
+
   //time keeping logic
   static std::vector<double> samples(128);
   static auto prev_time = std::chrono::system_clock::now();
@@ -68,9 +107,10 @@ bool SimulationWindow::step() {
 
     if (step_timer > 1.0 / STEP_FREQUENCY) {
       step_timer -= 1.0 / STEP_FREQUENCY;
-      // model->step();
-      // model->invalidate_rect();
+      simulation->step();
+      simulation->invalidate_rect();
     }
   }
+  
   return true;
 }

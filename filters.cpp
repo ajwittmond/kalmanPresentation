@@ -6,11 +6,11 @@
 // Langevin Equation Model implementation
 //::::::::::::::::::::::::::::::::::
 
-std::unique_ptr<LinearContinuousModel>
+std::shared_ptr<LinearContinuousModel>
 LangevinEquationModel::linear_perturbation_model(double time,
                                                  arma::dvec state,
                                                  double rate ) {
-   return std::unique_ptr<LinearContinuousModel>(
+   return std::shared_ptr<LinearContinuousModel>(
                         new LinearizedLangevinEquationModel(rate, time, state, clone()));
 }
 //:::::::::::::::::::::::::::::::::
@@ -120,7 +120,7 @@ arma::dvec block_vector(std::vector<arma::dvec> vecs){
 arma::dvec CompositeLinearizeableMeasurement::measure(double time, arma::dvec state) {
   std::vector<arma::dvec> measures(measurements.size());
   for (int i = 0; i < measurements.size(); ++i) {
-    measures.push_back(measurements[i]->measure(time, state));
+    measures[i] = measurements[i]->measure(time, state);
   }
   return block_vector(measures);
 }
@@ -128,7 +128,7 @@ arma::dvec CompositeLinearizeableMeasurement::measure(double time, arma::dvec st
 arma::dmat CompositeLinearizeableMeasurement::covariance(double time) {
   std::vector<arma::dmat> covariances(measurements.size());
   for (int i = 0; i < measurements.size(); ++i) {
-    covariances.push_back(measurements[i]->covariance(time));
+    covariances[i] = measurements[i]->covariance(time);
   }
   return block_diagonal(covariances);
 }
@@ -137,16 +137,16 @@ arma::dmat CompositeLinearizeableMeasurement::differential(double t,
                                                            arma::dvec state) {
   std::vector<arma::dmat> differentials(measurements.size());
   for (int i = 0; i < measurements.size(); ++i) {
-    differentials.push_back(measurements[i]->differential(t , state));
+    differentials[i] = measurements[i]->differential(t , state);
   }
   return block_diagonal(differentials);
 }
 
 std::unique_ptr<LinearMeasurement>
 CompositeLinearizeableMeasurement::linearize(std::shared_ptr<LangevinEquationModel> langevin_model) {
-  std::vector<std::shared_ptr<LinearMeasurement>> linearized(measurements.size());
+  std::vector<std::shared_ptr<LinearMeasurement>> linearized;
   for(auto measurement : measurements){
-    linearized.push_back(std::move(measurement->linearize(langevin_model)));
+    linearized.push_back(measurement->linearize(langevin_model));
   }
   return std::unique_ptr<LinearMeasurement>(new CompositeLinearMeasurement(linearized));
 }

@@ -23,8 +23,6 @@ class OrbitalModel : public LangevinEquationModel {
   std::shared_ptr<LangevinEquationModel> clone() override;
 };
 
-
-
 class RangeMeasurement : public LinearizeableMeasurement {
   arma::dvec position;
   arma::dmat covariance_mat;
@@ -77,7 +75,7 @@ private:
 
 public:
   AnglesMeasurement(arma::vec position, arma::dmat covariance_mat)
-    : position{position}, covariance_mat{covariance_mat} {
+    : position{position}, covariance_mat{covariance_mat},plane(2) {
     arma::dvec normal = position / arma::norm(position);
     plane(0) = -normal(1);
     plane(1) = normal(0);

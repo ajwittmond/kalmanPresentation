@@ -16,9 +16,9 @@ V runge_kutta_4(int steps, double start_t, double end_t, V start_state,
   V current_state = start_state;
   for (int i = 0; i < steps; i++) {
     V k1 = derivative(current_t, current_state);
-    V k2 = derivative(current_t + time_step / 2, (time_step / 2) * k1);
-    V k3 = derivative(current_t + time_step / 2, (time_step / 2) * k2);
-    V k4 = derivative(current_t + time_step, start_state + time_step * k3);
+    V k2 = derivative(current_t + time_step / 2, current_state + (time_step / 2) * k1);
+    V k3 = derivative(current_t + time_step / 2, current_state + (time_step / 2) * k2);
+    V k4 = derivative(current_t + time_step, current_state + time_step * k3);
     current_t += time_step;
     current_state += (time_step / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
   }
@@ -77,7 +77,7 @@ public:
      }
     current_state = runge_kutta_4(
         steps, current_t, t, current_state,
-        [&](double t, arma::dvec state) { return this->derivative(t, state); });
+        [&](double t, V state) -> V { return this->derivative(t, state); });
     this->current_t = t;
     return current_state;
   }
@@ -150,7 +150,7 @@ class LangevinEquationModel: public LinearNoiseModel{
     * trajectory starting at the passed time and state and updates the nominal
     * trajectory at the passed rate.
     */
-   virtual std::unique_ptr<LinearContinuousModel>
+   virtual std::shared_ptr<LinearContinuousModel>
    linear_perturbation_model(double time, arma::dvec state, double rate);
 
    virtual std::shared_ptr<LangevinEquationModel> clone() = 0;
@@ -310,15 +310,21 @@ public:
       std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements)
       : measurements(measurements) {}
 
+  CompositeLinearizeableMeasurement(CompositeLinearizeableMeasurement &other) = default;
 
   arma::dvec measure(double time, arma::dvec state) override;
 
   arma::dmat covariance(double time) override;
 
-  arma::dmat  differential(double t, arma::dvec state) override;
+  arma::dmat differential(double t, arma::dvec state) override;
 
   std::unique_ptr<LinearMeasurement>
   linearize(std::shared_ptr<LangevinEquationModel> langevin_model) override;
+
+  std::shared_ptr<LinearizeableMeasurement> clone() override {
+    return std::shared_ptr<LinearizeableMeasurement>(
+        new CompositeLinearizeableMeasurement(*this));
+  };
 };
 
 /**
@@ -350,8 +356,8 @@ class KalmanFilter : public Filter{
   };
 
 
-  std::unique_ptr<LinearContinuousModel> model;
-  std::unique_ptr<LinearMeasurement> measurement;
+  std::shared_ptr<LinearContinuousModel> model;
+  std::shared_ptr<LinearMeasurement> measurement;
   double rate;
 
   /**
@@ -360,14 +366,14 @@ class KalmanFilter : public Filter{
    * that do not require integration.  This reference allows that
    * replacement
    */
-  std::unique_ptr<Model<arma::dmat>> matrix_model;
+  std::shared_ptr<Model<arma::dmat>> matrix_model;
 public:
 
   KalmanFilter(double rate,
                arma::dvec prior_position, arma::dmat prior_covariance,
-               std::unique_ptr<LinearContinuousModel> model,
-               std::unique_ptr<LinearMeasurement> measurement):
-    model(std::move(model)), measurement(std::move(measurement)), rate{rate},
+               std::shared_ptr<LinearContinuousModel>  model,
+               std::shared_ptr<LinearMeasurement>  measurement):
+    model(model), measurement(measurement), rate{rate},
     matrix_model(new CovarianceMatrixModel(*this,rate,0,prior_covariance))
     {
       model->set_initial_conditions(0, prior_position);
@@ -375,12 +381,12 @@ public:
 
   KalmanFilter(double rate, arma::dvec prior_position,
                arma::dmat prior_covariance,
-               std::unique_ptr<LinearContinuousModel> model,
-               std::unique_ptr<LinearMeasurement> measurement,
-               std::unique_ptr<Model<arma::dmat>> matrix_model)
-      : model(std::move(model)),
-        measurement(std::move(measurement)), rate{rate},
-        matrix_model(std::move(matrix_model))
+               std::shared_ptr<LinearContinuousModel> model,
+               std::shared_ptr<LinearMeasurement> measurement,
+               std::shared_ptr<Model<arma::dmat>> & matrix_model)
+      : model(model),
+        measurement(measurement), rate{rate},
+        matrix_model(matrix_model)
   {}
 
   void set_rate(double rate){
@@ -412,17 +418,17 @@ class ExtendedKalmanFilter : public Filter{
 protected:
   KalmanFilter perturbationProcessFilter; ///< The filter for the linearized process
   std::shared_ptr<LangevinEquationModel> model; ///< The model, shared with the linearized process, for the nominal trajectory
-  std::unique_ptr<LinearizeableMeasurement> measurement;
+  std::shared_ptr<LinearizeableMeasurement> measurement;
 
  public:
  ExtendedKalmanFilter(double rate,arma::dvec prior_position, arma::dmat prior_covariance,
                         std::shared_ptr<LangevinEquationModel> model,
-                        std::unique_ptr<LinearizeableMeasurement> measurement)
+                      std::shared_ptr<LinearizeableMeasurement> & measurement)
    : perturbationProcessFilter(rate,prior_position,prior_covariance,
                                model->linear_perturbation_model(0,prior_position,rate),
                                measurement->linearize(model)),
      model{model},
-     measurement{std::move(measurement)}
+     measurement{measurement}
   {}
 
    arma::dvec filtered_value(double t) override;
@@ -449,8 +455,10 @@ public:
       double rate, double start_time, arma::dvec start_state,
       std::shared_ptr<LangevinEquationModel> langevin_model)
       : langevin_model(langevin_model),
-        LinearContinuousModel{rate, current_t,current_state} {
+        LinearContinuousModel{rate, current_t, start_state} {
     langevin_model->set_initial_conditions(start_time, start_state);
+    current_t = current_t;
+    current_state = arma::dvec(start_state.size(),arma::fill::zeros);
   }
 
   arma::dvec derivative(double t, arma::vec state) override{

@@ -1,4 +1,5 @@
 
+#include <fenv.h>
 #define BOOST_STACKTRACE_USE_BACKTRACE T
 #include "simulationWindow.h"
 #include <boost/stacktrace/stacktrace_fwd.hpp>

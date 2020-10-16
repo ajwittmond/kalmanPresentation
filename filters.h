@@ -70,7 +70,7 @@ public:
    * subsequent values will be calculated starting at this point.
    * The default implementation uses Runge-Kutta, can be overridden to allow for exact solutions
    */
-   V extrapolate( double t) {
+   virtual V extrapolate( double t) {
      int steps = std::ceil(std::abs(rate*(t - current_t)));
      if (std::abs(t - current_t) < __DBL_EPSILON__) {
        return current_state;
@@ -195,7 +195,7 @@ class Filter{
    virtual arma::dmat covariance(double t) = 0;
 
    /**
-    * Update the filter with new data and returns the new estidmate for the current time
+    * Update the filter with a new measurement and returns the new estidmate for the current time
     */
    virtual arma::dvec update(double t, arma::vec) = 0;
 };
@@ -298,9 +298,13 @@ public:
   virtual arma::dmat measurement_matrix(double time) override;
 };
 
+arma::dmat join_rows(std::vector<arma::dmat> mat);
+
 arma::dmat block_diagonal(std::vector<arma::dmat> mat);
 
-arma::dvec block_vector(std::vector<arma::dvec> vec);
+arma::dvec join_rows(std::vector<arma::dvec> vec);
+
+
 
 class CompositeLinearizeableMeasurement : public LinearizeableMeasurement {
   std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements;
@@ -351,7 +355,13 @@ class KalmanFilter : public Filter{
       const arma::dmat F = filter.model->transform_matrix(t);
       const arma::dmat Q = filter.model->noise_matrix(t);
       const arma::dmat P = state;
-      return F*P + arma::trans(P)*arma::trans(F) + Q;
+      // std::cout << "det F" << arma::det(F.submat(2,0,3,1)) << std::endl;
+      return F*P + P*arma::trans(F) + Q;
+    }
+
+    arma::dmat extrapolate(double t) override{
+      Model<arma::dmat>::extrapolate(t);
+      return current_state;
     }
   };
 
@@ -405,6 +415,22 @@ public:
     return model->extrapolate(t);
   }
 
+  std::shared_ptr<LinearMeasurement> get_measurement(){
+    return measurement;
+  }
+
+  void set_measurement(std::shared_ptr<LinearMeasurement> measurement) {
+    this->measurement = measurement;
+  }
+
+  std::shared_ptr<LinearContinuousModel> get_model(){
+    return model;
+  }
+
+  void set_model(std::shared_ptr<LinearContinuousModel> model) {
+    this->model = model;
+  }
+
 
   arma::dvec update(double t, arma::vec) override;
 };
@@ -431,6 +457,19 @@ protected:
      measurement{measurement}
   {}
 
+   std::shared_ptr<LinearizeableMeasurement> get_measurement() { return measurement; }
+
+   void set_measurement(std::shared_ptr<LinearizeableMeasurement> measurement) {
+     this->measurement = measurement;
+   }
+
+    std::shared_ptr<LangevinEquationModel> get_model() {
+      return model;
+    }
+
+    void set_model(std::shared_ptr<LangevinEquationModel> model) {
+      this->model = model;
+    }
    arma::dvec filtered_value(double t) override;
 
    arma::dmat covariance(double t) override;
@@ -448,8 +487,9 @@ private:
 
 public:
   /**
-   * Takes the number of steps for runge kutta updates when calculating the nominal trajectory as well
-   * as the initial conditions to use.  
+   * Takes the number of steps for runge-kutta updates when calculating the nominal trajectory as well
+   * as the initial conditions to use.  The start_state and start_time here are for the underlying model.
+   * Since this is used as a perturbation model the starting state is initialized to zero.
    */
   LinearizedLangevinEquationModel(
       double rate, double start_time, arma::dvec start_state,
@@ -478,13 +518,6 @@ public:
     return transition_matrix;
   }
 
-  /**
-   *  In this case calling this will relinearize around the passed point and
-   * time
-   */
-  void set_initial_conditions(double t, arma::dvec x) override{
-    langevin_model->set_initial_conditions(t, x);
-  }
 
 };
 

@@ -1,10 +1,11 @@
 #include "simulation.h"
+#include <cmath>
 #include <iostream>
 #include <numbers>
 #include <algorithm>
 
 
-const double Y_UNITS = 30;
+const double Y_UNITS = 20;
 
 void Simulation::restart(){
   time = 0;
@@ -14,11 +15,37 @@ void Simulation::restart(){
 }
 
 void Simulation::step(){
+  using namespace std::numbers;
   time += time_step;
-  positions.push_back(model->extrapolate(time));
-  //std::cout << model->extrapolate(time) << " " << time << std::endl;
+  arma::dvec state = model->extrapolate(time);
+
+  for (Sensor &sensor : sensors) {
+
+    double angle = std::atan2(state(1) - sensor.position(1),
+                              state(0) - sensor.position(0)) + pi_v<double>;
+
+    // std::cout << "angle " << angle << std::endl;
+
+    if (angle <= sensor.end_angle && angle >= sensor.start_angle &&
+        time - sensor.prev_update_time > sensor.rate){
+      filter->set_measurement(sensor.measurement);
+      arma::dvec observation = sensor.measurement->measure(time,state);
+      arma::dvec noise = arma::sqrtmat_sympd(sensor.measurement->covariance(time))
+        * arma::randn(observation.size());
+      // std::cout << "noise " << noise;
+      filter->update(time,observation +noise );
+      current_entry = (current_entry + 1) % positions.size();
+      sensor.prev_update_time = time;
+    }
+  }
+
+  positions.push_back(state);
   filtered_positions.push_back(filter->filtered_value(time));
   covariances.push_back(filter->covariance(time));
+
+  // std::cout << filtered_positions.back() << " " << time << std::endl;
+
+  // std::cout << covariances.back() << " " << time << std::endl;
 }
 
 
@@ -46,15 +73,32 @@ bool Simulation::draw(const Cairo::RefPtr<Cairo::Context> &cr){
 
     for (int i = start; i < positions.size(); i++) {
       double alpha = 0.1*(1.0 -(double)(positions.size()-i)/(double)VARIANCES_TO_DRAW);
-      const arma::dmat &covariance = covariances[i];
+      const arma::dmat &covariance = covariances[i].submat(0,0,1,1);
       const arma::dvec &filtered_position = filtered_positions[i];
-      cr->save();
-        cr->translate(filtered_position(0), filtered_position(1));
-        cr->set_source_rgba(1, 0, 1, alpha);
-        cr->scale(2 * std::sqrt(covariance(0, 0)), 2 * std::sqrt(covariance(1, 1)));
-        cr->arc(0, 0, 1, 0, 2*pi_v<double>);
-        cr->fill();
-      cr->restore();
+      arma::dvec eigen_values;
+      arma::dmat eigen_vectors;//should be orthogonal
+      arma::eig_sym(eigen_values,eigen_vectors,covariance);
+      double angle = std::atan2(eigen_vectors(0,1),eigen_vectors(1,0));
+      if(covariance(0,0) > 0 && covariance(1,1)>0){
+        cr->save();
+          cr->begin_new_path();
+          cr->translate(filtered_position(0), filtered_position(1));
+          cr->set_source_rgba(1, 0, 1, alpha);
+          cr->rotate(angle);
+          // std::cout << eigen_values << std::endl;
+          // std::cout << eigen_vectors << std::endl;
+          // std::cout << covariance << std::endl;
+          // std::cout << angle << std::endl;
+          cr->scale(2 * std::sqrt(eigen_values(0)), 2 * std::sqrt(eigen_values(1)));
+          cr->arc(0, 0, 1, 0, 2*pi_v<double>);
+          cr->fill_preserve();
+          if (i == positions.size() -1){
+            cr->set_source_rgb(0,0,0);
+          }
+          cr->set_line_width(0.025);
+          cr->stroke();
+        cr->restore();
+      }
     }
 
     cr->set_source_rgba(1, 1, 0, 1);

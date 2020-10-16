@@ -1,6 +1,6 @@
 #include "filters.h"
 #include <algorithm>
-
+#include <assert.h>
 
 //::::::::::::::::::::::::::::::::::
 // Langevin Equation Model implementation
@@ -24,22 +24,31 @@ arma::dvec KalmanFilter::update(double t, arma::vec observation){
 
   const arma::dmat M = measurement->measurement_matrix(t),
                   P = matrix_model->extrapolate( t),
-                  R = measurement->measurement_matrix(t);
+    R = measurement->covariance(t);
 
+  // std::cout << "observation " << observation << std::endl;
+  // std::cout << "M " << M << std::endl <<"P " << P <<std::endl << "R " << R << std::endl;
   // the Kalman gain
-  const arma::dmat K = P * arma::trans(M) * arma::inv(M * P * trans(M) + R);
+  const arma::dmat K = P * arma::trans(M) * arma::inv(M * P * arma::trans(M) + R);
 
+  // std::cout << "K " << K << std::endl << "KM "<< K*M << std::endl;
   //predict
   const arma::dvec old_state = model->extrapolate( t );
-  const arma::dmat old_covariance = matrix_model->extrapolate( t );
+  //adjust
 
-  //adjust 
+  // std::cout << "old cov " << P << std::endl;
+  // std::cout << "old state " << old_state << std::endl;
 
+  const arma::dmat KM = K*M;
+  const arma::dmat I_KM = arma::eye(KM.n_rows,KM.n_cols) - KM;
   //correct with residual multiplied by Kalman Gain
   const arma::dvec new_state = old_state + K*(observation - M*old_state);
   //adjust covariance with the change in uncertainty caused by observation
-  const arma::dmat new_covariance = old_covariance - K*M*old_covariance;
-
+  const arma::dmat new_covariance = I_KM*P*arma::trans(I_KM) + K*R*arma::trans(K);
+  // std::cout << "I_KM P I_KM^t \n" << I_KM*P*arma::trans(I_KM) << std::endl;
+  // std::cout << "KMP " << K*M*P << std::endl;
+  // std::cout << "new cov " << new_covariance << std::endl;
+  // std::cout << "new state " << new_state << std::endl;
   //now integrate from new initial estidmates
   model->set_initial_conditions(t , new_state );
   matrix_model->set_initial_conditions(t , new_covariance);
@@ -53,7 +62,7 @@ arma::dvec KalmanFilter::update(double t, arma::vec observation){
 //::::::::::::::::::::::::::::::::::
 
 arma::dvec ExtendedKalmanFilter::filtered_value(double t) {
-  return perturbationProcessFilter.filtered_value(t ) + model->extrapolate(t );
+  return  model->extrapolate(t );
 }
 
 arma::dmat ExtendedKalmanFilter::covariance(double t) {
@@ -71,6 +80,7 @@ arma::dvec ExtendedKalmanFilter::update(double t, arma::vec observation) {
 
   model->set_initial_conditions(t , state_estidmate);
 
+  perturbationProcessFilter.get_model()->set_initial_conditions(t,arma::dvec(nominal_state.size(),arma::fill::zeros));
   return state_estidmate;
 }
 
@@ -79,22 +89,43 @@ arma::dvec ExtendedKalmanFilter::update(double t, arma::vec observation) {
 //:::::::::::::::::::::::::::::::::
 // matrix amalgamation functions
 //:::::::::::::::::::::::::::::::::
+arma::dmat join_rows(std::vector<arma::dmat> mats) {
+  assert(!mats.empty());
+  int rows = 0;
+  int cols = mats[0].n_cols;
+  for (arma::dmat m : mats) {
+    rows += m.n_rows;
+    assert(m.n_cols == cols);
+  }
+  int row = 0;
+  arma::dmat out(rows, cols, arma::fill::zeros);
+  for (arma::dmat mat : mats) {
+    int s = mat.n_rows;
+    out.submat(row, 0, row+s - 1, cols - 1) = mat;
+    row += s;
+  }
+  return out;
+}
+
 arma::dmat block_diagonal(std::vector<arma::dmat> diagonals) {
+  assert(!diagonals.empty());
   int dim = 0;
   for (arma::dmat m : diagonals) {
     dim += m.n_rows;
+    assert(m.is_diagmat());
   }
   int n = 0;
   arma::dmat out(dim, dim, arma::fill::zeros);
-  for (arma::dvec mat : diagonals) {
-    int s = mat.n_cols;
-    out.submat(n, n, n + s, n + s) = mat;
+  for (arma::dmat mat : diagonals) {
+    int s = mat.n_rows;
+    out.submat(n, n, n + s - 1, n + s - 1) = mat;
     n += s;
   }
   return out;
 }
 
-arma::dvec block_vector(std::vector<arma::dvec> vecs){
+arma::dvec join_rows(std::vector<arma::dvec> vecs){
+  assert(!vecs.empty());
   int dim = 0;
   for (arma::dvec vec: vecs) {
     dim += vec.size();
@@ -122,7 +153,7 @@ arma::dvec CompositeLinearizeableMeasurement::measure(double time, arma::dvec st
   for (int i = 0; i < measurements.size(); ++i) {
     measures[i] = measurements[i]->measure(time, state);
   }
-  return block_vector(measures);
+  return join_rows(measures);
 }
 
 arma::dmat CompositeLinearizeableMeasurement::covariance(double time) {
@@ -139,7 +170,7 @@ arma::dmat CompositeLinearizeableMeasurement::differential(double t,
   for (int i = 0; i < measurements.size(); ++i) {
     differentials[i] = measurements[i]->differential(t , state);
   }
-  return block_diagonal(differentials);
+  return join_rows(differentials);
 }
 
 std::unique_ptr<LinearMeasurement>
@@ -160,7 +191,7 @@ CompositeLinearizeableMeasurement::linearize(std::shared_ptr<LangevinEquationMod
 
 
 arma::dmat CompositeLinearMeasurement::covariance(double time) {
-  std::vector<arma::dmat> covariances(measurements.size());
+  std::vector<arma::dmat> covariances;
   for (int i = 0; i < measurements.size(); ++i) {
     covariances.push_back(measurements[i]->covariance(time));
   }
@@ -168,11 +199,11 @@ arma::dmat CompositeLinearMeasurement::covariance(double time) {
 }
 
 arma::dmat CompositeLinearMeasurement::measurement_matrix(double t) {
-  std::vector<arma::dmat> differentials(measurements.size());
+  std::vector<arma::dmat> differentials;
   for (int i = 0; i < measurements.size(); ++i) {
     differentials.push_back(measurements[i]->measurement_matrix(t));
   }
-  return block_diagonal(differentials);
+  return join_rows(differentials);
 }
 //:::::::::::::::::::::::::::::::
 

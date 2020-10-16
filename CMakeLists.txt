@@ -28,4 +28,4 @@ add_executable(Filters main.cpp simulation.cpp simulationWindow.cpp filters.cpp 
 
 # Link the target to the GTK+ libraries
 TARGET_LINK_LIBRARIES(Filters armadillo dl backtrace ${BACKTRACE_LIBRARIES} ${GTK3_LIBRARIES})
-target_compile_options(Filters PRIVATE -g -ggdb -rdynamic  -export-dynamic )
+target_compile_options(Filters PRIVATE -g -ggdb -O0 -rdynamic  -export-dynamic  )

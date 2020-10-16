@@ -4,10 +4,28 @@
 #include "filters.h"
 #include "gtkmm/drawingarea.h"
 #include "models.h"
+#include "simulation.h"
 #include "simulationWindow.h"
+#include <numbers>
 
 const double SAMPLE_RATE = 1000;
-void SimulationWindow::initialize_simulation(Gtk::DrawingArea * area){
+
+std::shared_ptr<LinearizeableMeasurement> get_total_measurement(arma::dvec position){
+  std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements{
+    std::shared_ptr<LinearizeableMeasurement>(
+                    new RangeMeasurement(position,arma::dmat{arma::dvec{0.001}})),
+    std::shared_ptr<LinearizeableMeasurement>(
+                    new RangeRateMeasurement(position,arma::dmat{arma::dvec{0.2}})),
+    std::shared_ptr<LinearizeableMeasurement>(
+                    new AnglesMeasurement(position,arma::dmat{arma::dvec{0.2}})),
+  };
+
+  // return std::shared_ptr<LinearizeableMeasurement>(new CompositeLinearizeableMeasurement(measurements));
+  return measurements[0];
+}
+
+void SimulationWindow::initialize_simulation(Gtk::DrawingArea *area) {
+  using namespace std::numbers;
   arma::dvec initial_state{0,4,1,0};
   std::shared_ptr<LangevinEquationModel> model(new OrbitalModel(SAMPLE_RATE,0,initial_state));
 
@@ -16,28 +34,25 @@ void SimulationWindow::initialize_simulation(Gtk::DrawingArea * area){
 
   std::shared_ptr<LangevinEquationModel> filter_model(
       new OrbitalModel(SAMPLE_RATE, 0, state_prior));
-  arma::dvec sensor_position{0,1};
 
-
-  std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements{
-    std::shared_ptr<LinearizeableMeasurement>(new RangeMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
-    std::shared_ptr<LinearizeableMeasurement>(new RangeRateMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
-      std::shared_ptr<LinearizeableMeasurement>(new AnglesMeasurement(sensor_position,arma::dmat{arma::dvec{0.2}})),
-    };
-
-  std::shared_ptr<LinearizeableMeasurement> measurement(new CompositeLinearizeableMeasurement(measurements));
+  std::shared_ptr measurement1 = get_total_measurement(arma::dvec{0,1});
+  std::shared_ptr measurement2 = get_total_measurement(arma::dvec{0,-1});
 
   ExtendedKalmanFilter *ekf = new ExtendedKalmanFilter(
-        SAMPLE_RATE, state_prior, prior_covariance, filter_model, measurement);
+        SAMPLE_RATE, state_prior, prior_covariance, filter_model, measurement1);
 
-  std::shared_ptr<Filter>
+  std::shared_ptr<ExtendedKalmanFilter>
       filter(ekf);
 
+  std::vector<Sensor> sensors{
+    Sensor{measurement1,1.0/32,0,pi_v<double>,arma::dvec{0,1},0},
+    Sensor{measurement1,1.0/32,pi_v<double>,2*pi_v<double>,arma::dvec{0,-1},0}
+  };
 
   this->simulation = std::unique_ptr<Simulation>(new Simulation(
-          area,filter,std::dynamic_pointer_cast<Model<arma::dvec>>(model), 1.0 /STEP_FREQUENCY));
+      area, filter, std::dynamic_pointer_cast<Model<arma::dvec>>(model),
+      sensors, 1.0 / STEP_FREQUENCY));
 }
-
 
 void SimulationWindow::from_file() throw() {
   builder = Gtk::Builder::create();

@@ -461,6 +461,7 @@ protected:
 
    void set_measurement(std::shared_ptr<LinearizeableMeasurement> measurement) {
      this->measurement = measurement;
+     perturbationProcessFilter.set_measurement(measurement->linearize(model));
    }
 
     std::shared_ptr<LangevinEquationModel> get_model() {

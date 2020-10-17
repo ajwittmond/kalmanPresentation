@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <chrono>
 #include <memory>
@@ -7,47 +8,98 @@
 #include "simulation.h"
 #include "simulationWindow.h"
 #include <numbers>
+#include "ini_parser.h"
+#include <sstream>
 
 const double SAMPLE_RATE = 1000;
+const int BUFFER_SIZE = 500;
 
-std::shared_ptr<LinearizeableMeasurement> get_total_measurement(arma::dvec position){
-  std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements{
-    std::shared_ptr<LinearizeableMeasurement>(
-                    new RangeMeasurement(position,arma::dmat{arma::dvec{0.001}})),
-    std::shared_ptr<LinearizeableMeasurement>(
-                    new RangeRateMeasurement(position,arma::dmat{arma::dvec{0.2}})),
-    std::shared_ptr<LinearizeableMeasurement>(
-                    new AnglesMeasurement(position,arma::dmat{arma::dvec{0.2}})),
-  };
 
-  // return std::shared_ptr<LinearizeableMeasurement>(new CompositeLinearizeableMeasurement(measurements));
-  return measurements[0];
+arma::dvec parse_vec(const std::string vec_string){
+  std::stringstream stream(vec_string);
+  std::vector<double> entries;
+  double x;
+  char delim;
+  do{
+    stream >> x;
+    if(!stream.fail()){
+      entries.push_back(x);
+    }
+    stream >> delim;
+  }while(!stream.bad() && !stream.eof());
+  return arma::dvec(entries);
+};
+
+std::vector<Sensor> parse_sensors(ParsedIniFile & configFile){
+  using namespace std::numbers;
+  std::vector<Sensor> out;
+  for(auto sensor_config : configFile["sensor"]){
+    Sensor sensor;
+    sensor.position = parse_vec(sensor_config["position"]);
+    sensor.start_angle = 2*pi_v<double>*parse_vec(sensor_config["start_angle"])(0)/360.0;
+    sensor.end_angle = 2*pi_v<double>*parse_vec(sensor_config["end_angle"])(0)/360.0;
+    sensor.rate = parse_vec(sensor_config["rate"])(0);
+    arma::dvec measurement_noise = parse_vec(sensor_config["measurement_noise"]);
+    std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements;
+    std::stringstream names(sensor_config["measurement"]);
+    int i = 0;
+    do{
+      std::string name;
+      std::getline(names,name,';');
+      if(name == "Range"){
+        measurements.push_back(std::shared_ptr<LinearizeableMeasurement>
+                               (new RangeMeasurement
+                                (sensor.position,arma::dmat{measurement_noise(i)} )
+                                ));
+      }else if(name == "RangeRate"){
+        measurements.push_back(std::shared_ptr<LinearizeableMeasurement>
+                               (new RangeRateMeasurement
+                                (sensor.position,arma::dmat{measurement_noise(i)} )
+                                ));
+      }else if(name == "Angle"){
+        measurements.push_back(std::shared_ptr<LinearizeableMeasurement>
+                               (new AnglesMeasurement
+                                (sensor.position,arma::dmat{measurement_noise(i)} )
+                                ));
+      }
+      i++;
+    }while(!names.eof());
+    sensor.measurement = std::unique_ptr<LinearizeableMeasurement>
+      (new CompositeLinearizeableMeasurement(measurements));
+    sensor.prev_update_time = 0;
+    out.push_back(sensor);
+  }
+  return out;
 }
 
 void SimulationWindow::initialize_simulation(Gtk::DrawingArea *area) {
   using namespace std::numbers;
-  arma::dvec initial_state{0,4,1,0};
+
+  ParsedIniFile configFile = parse_ini_file("./options.ini",BUFFER_SIZE);
+
+  arma::dvec initial_state =
+    parse_vec(configFile["initial_conditions"][0]["initial_vector"]);
   std::shared_ptr<LangevinEquationModel> model(new OrbitalModel(SAMPLE_RATE,0,initial_state));
 
-  arma::dvec state_prior{0.001,4.03,0.98,0.1};
-  arma::dmat prior_covariance{{0.1,0,0,0},{0,0.1,0,0},{0,0,0.1,0},{0,0,0,0.1}};
+  arma::dvec state_prior =
+      parse_vec(configFile["initial_conditions"][0]["filter_initial_vector"]);
+  arma::dvec variance_vec =
+      parse_vec(configFile["initial_conditions"][0]["prior_covariance"]);
+
+  arma::dmat prior_covariance = arma::diagmat(variance_vec);
 
   std::shared_ptr<LangevinEquationModel> filter_model(
       new OrbitalModel(SAMPLE_RATE, 0, state_prior));
 
-  std::shared_ptr measurement1 = get_total_measurement(arma::dvec{0,1});
-  std::shared_ptr measurement2 = get_total_measurement(arma::dvec{0,-1});
+  std::vector<Sensor> sensors = parse_sensors(configFile);
 
+  assert(sensors.size()>0);
   ExtendedKalmanFilter *ekf = new ExtendedKalmanFilter(
-        SAMPLE_RATE, state_prior, prior_covariance, filter_model, measurement1);
+        SAMPLE_RATE, state_prior, prior_covariance, filter_model, sensors[0].measurement);
 
   std::shared_ptr<ExtendedKalmanFilter>
       filter(ekf);
 
-  std::vector<Sensor> sensors{
-    Sensor{measurement1,1.0/32,0,pi_v<double>,arma::dvec{0,1},0},
-    Sensor{measurement1,1.0/32,pi_v<double>,2*pi_v<double>,arma::dvec{0,-1},0}
-  };
 
   this->simulation = std::unique_ptr<Simulation>(new Simulation(
       area, filter, std::dynamic_pointer_cast<Model<arma::dvec>>(model),

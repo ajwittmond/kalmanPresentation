@@ -1,5 +1,6 @@
 #pragma once
 
+#include "gdkmm/general.h"
 #include <gtkmm/drawingarea.h>
 #include <sigc++/sigc++.h>
 #include <vector>
@@ -50,8 +51,10 @@ public:
   }
 };
 
-// An abstract drawable that draws some primitive cairo path with a given fill, stroke
-// scale, orientation, and position
+
+
+// An abstract drawable that has a position, orientation, scale, foreground
+// color, and background color
 class Shape : public Drawable{
 private:
   bool between(double x,double min, double max){
@@ -91,6 +94,15 @@ public:
   void set_dimensions(double sx, double sy){
     this->sx =sx; this->sy = sy;
   }
+
+  void set_angle(double angle){
+    this->angle = angle;
+  }
+
+  double get_angle(double angle){
+    return angle;
+  }
+
 
   virtual bool draw_shape(const Cairo::RefPtr<Cairo::Context> &cr) = 0;
 
@@ -171,6 +183,30 @@ public:
   }
 };
 
+class Picture : public Shape{
+
+  Glib::RefPtr<Gdk::Pixbuf> image;
+
+public:
+  Picture() = default;
+
+  Picture(const std::string &path){
+    from_file(path);
+  }
+
+  bool draw_shape(const Cairo::RefPtr<Cairo::Context> &cr) override {
+    cr->scale(1.0/image->get_width(),1.0/image->get_height());
+    Gdk::Cairo::set_source_pixbuf(cr, image,-image->get_width()/2.0,-image->get_height()/2.0);
+    cr->paint();
+    return false;
+  }
+
+  void from_file(const std::string &path){
+    image = Gdk::Pixbuf::create_from_file(path);
+  }
+};
+
+
 // a wrapper for a drawing area that add a convienience function
 // for triggering a draw
 class AreaController{
@@ -179,6 +215,7 @@ protected:
 public:
   AreaController(Gtk::DrawingArea *area): area{area} {}
 
+  
   void invalidate_rect() {
     auto win = area->get_window();
     if(win)

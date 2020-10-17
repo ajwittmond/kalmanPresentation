@@ -24,7 +24,7 @@ INCLUDE_DIRECTORIES(${Backtrace_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${GTK3_INCLU
 LINK_DIRECTORIES(${GTK3_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR})
 
 # add the executable
-add_executable(Filters main.cpp simulation.cpp simulationWindow.cpp filters.cpp models.cpp)
+add_executable(Filters main.cpp simulation.cpp simulationWindow.cpp filters.cpp models.cpp ini_parser.cpp)
 
 # Link the target to the GTK+ libraries
 TARGET_LINK_LIBRARIES(Filters armadillo dl backtrace ${BACKTRACE_LIBRARIES} ${GTK3_LIBRARIES})

@@ -80,13 +80,13 @@ arma::dmat RangeRateMeasurement::differential(double t, arma::dvec state) {
   double r_inv = 1/arma::norm(rvec);
   double r_inv3 = std::pow(r_inv,3);
   double dx =
-      r_inv * (v(0) + rvec(1) * v(1)) -
+      r_inv * v(0)  -
     r_inv3 * rvec(0)*(v(0) * rvec(0) + rvec(1) * v(1));
   double dy =
-    r_inv * (v(0)*rvec(0) + v(1)) -
+    r_inv *  v(1) -
               r_inv3 * rvec(1)*(v(0) * rvec(0) + rvec(1) * v(1));
-  double ddx = r_inv * (rvec(0) + rvec(1) * v(1));
-  double ddy = r_inv * (rvec(0) * v(0) + rvec(1));
+  double ddx = r_inv * (rvec(0) );
+  double ddy = r_inv * ( rvec(1));
   return arma::dmat{{dx, dy, ddx, ddy}};
 }
 

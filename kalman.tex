@@ -29,31 +29,17 @@
 \begin{frame}{Classical Models}
 
   Classically, time dependent systems are modeled by:
-
-  \only<2>{ Differential equations in the continuous case
+  \pause
+  Differential equations 
     \begin{align}
       f &: \R^n \times \R \to \R^n \\
       \frac{dx}{dt} &= f(x,t)
     \end{align}
-
-    Solved by:
-    \begin{align}
-      x : \R \to \R^n
-    \end{align}
-  } \only<3>{
-
-    Difference equations in the discrete case
-
-    \begin{align}
-      f &: \Z \times \R \to \R^n \\
-      x_t &= f(x_{t-1},t)
-    \end{align}
-
-    Solved by:
-    \begin{align}
-      \{ x_t \}_{t\in \Z}
-    \end{align}
-  }
+  \pause
+  Solved by:
+  \begin{align}
+    x : \R \to \R^n
+  \end{align}
 \end{frame}
 
 \begin{frame}{The problem of noise}
@@ -74,8 +60,7 @@
 
 \begin{frame}{Stochastic Models}
 
-  \only<2-3>{
-
+    \pause
     Stochastic differential equations
     \begin{align}
       dx_t = f(x_t,t) dt + g(x_t,t) d\beta_t
@@ -86,29 +71,16 @@
     \begin{align}
       x_t - x_0 = \int_0^tf(x_t,t) dt + \int_0^tg(x_t,t) d\beta_t
     \end{align}
-  } \only<3>{ solved by a stochastic process
+    \pause
+    Solved by a stochastic process
 
     \begin{align}
       X &: (\Omega,P) \times \R \to \R^n \\
       \{X_t &\}_{t\in R} 
     \end{align}
-  }
+  
 
 
-  \only<4>{
-
-    Stochastic difference equations
-
-    \begin{align}
-      X_n &= f(X_{n-1},\omega_k,t_k) 
-    \end{align}
-
-    solved by the stochastic process
-    \begin{equation}
-      \{X_n\}_{n \in \N}
-    \end{equation}
-
-  }
 \end{frame}
 
 \begin{frame}{Stochastic Model of Measurement}

@@ -100,7 +100,7 @@
 \end{frame}
 
 \begin{frame}{The Filtering Problem and its Solution}
-  Given a set of observations $\{Y_{t_1},\dots,Y_{t_n}\} = Y_{t_n}$ we want to
+  Given a set of observations $\{Y_{t_1},\dots,Y_{t_n}\} = Y_{n}$ we want to
   estimate the distribution of $X_t$.
 
   \pause
@@ -113,13 +113,13 @@
 
   \pause We want to compute
   \begin{equation}
-    p(x,t \mid Y_{t_n})
+    p(x,t \mid Y_n)
   \end{equation}
   \pause The minimum variance estimate of $X_t$ is
   \begin{equation}
     \mathbb{E}[x \mid Y_t]
   \end{equation}
-  the mean of $p(x,t \mid Y_{t_n})$
+  the mean of $p(x,t \mid Y_{n})$
 \end{frame}
 
 \section{The Kalman-Bucy Filter}
@@ -127,22 +127,14 @@
 \begin{frame}{The Linear Problem}
   Linear systems are given by:
 
-  \begin{itemize}
-   \pause
-  \item Continuous case: \\
+  \pause
     \begin{align}
       dx_t &= F(t) x_t dt + G(t) d\beta_t \\
       y_k &= M(t_k) x_{t_k} + \nu_k \\
       \mathbb{E}[d\beta_td\beta_t^T] &= Q(t) dt, \quad \nu_k \sim N(0,R_k)
     \end{align}
    \pause
-  \item Discrete case: \\
-    \begin{align}
-      x_n &= \Phi(t_n,t_{n-1})x_{n-1} + \Gamma(t_{n-1})\omega_{n-1}  \\
-      y_n &= M(t_n) x_{t_n} + \nu_n \\
-      \omega_{n} &\sim N(0,Q(t)), \quad \nu_n \sim N(0,R_n)
-    \end{align}
-  \end{itemize}
+ 
 \end{frame}
 
 \begin{frame}{Characterization of Linear Systems}
@@ -197,6 +189,14 @@
   }
 \end{frame}
 
+\begin{frame}{In Code}
+
+  \begin{figure}
+    \includegraphics[scale=0.3]{kalman_implementation.png}
+    \caption{The Kalman Filter update in C++}
+  \end{figure}
+\end{frame}
+
 \begin{frame}{Considerations}
   \begin{itemize}
    \pause
@@ -210,42 +210,10 @@
     \pause 
 \item The update is recursive so we only need to store our previous estimates at
   the time of the update
-  \pause
  
-\item Prediction costs an integral of dimension $m$ and one of dimension $m^2$
-  where $m$ is the dimension of the state.
   \end{itemize}
 
 \end{frame}
-
-\begin{frame}{Reduction to the Discrete Case}
-  We can integrate
-  \begin{equation}
-    dx_t = F(t) x_t dt + G(t) d\beta_t 
-  \end{equation}
-  to get
-  \begin{equation}
-    x_{t_k} = \phi(t_k,t_{k-1})x_{t_{k-1}} + \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) d\tau
-  \end{equation}
-  then we can set $ \omega_t = \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) d\beta_\tau $ 
-  \begin{equation}
-    \mathbb{E}[\omega_t\omega_t^T] = \int_{t_{k-1}}^{t_k} \phi(t_k,\tau) G(\tau) Q(r) G^T(r) \phi^T(t_k,\tau)  d\tau = Q_k
-  \end{equation}
-\end{frame}
-
-\begin{frame}{Discrete system and evolution}
-  So we have the discrete system
-  \begin{align}
-    x_{t_k} = \phi(t_k,t_{k-1})x_{t_{k-1}} + \omega_t
-  \end{align}
-  The prediction equations change to
-  \begin{align}
-    \hat{x}^{t_k}_t &= \phi(t,t_k)\hat{x}^{t_k}_{t_k} \\
-    P^{t_k}_t &= \phi(t,t_k)P^{t_k}_{t_k} +  Q_k
-  \end{align}
-
-\end{frame}
-
  
 \begin{frame}{Extension to Non-Linear Problems}
   We start with the system
@@ -257,6 +225,7 @@
   \begin{equation}
     \mathbb{E}[d\beta_td\beta^T_t] = Q(t) dt
   \end{equation}
+  \pause
   Then we pick a \textbf{reference trajectory} $\bar{x}_{t_0}(t)$ with some given
   $\bar{x}(t_0)$ such that
   \begin{equation}
@@ -270,13 +239,16 @@
     \delta x(t) = x(t) - \bar{x}_{t_0}(t) 
   \end{equation}
   which statisfies
+  \pause
   \begin{equation}
     d(\delta x_t) = (f(x_t,t) - f(\bar{x}_{t_0}(t),t)) dt + G(t) d\beta_t
   \end{equation}
+  \pause
   then do a Taylor approximation
   \begin{equation}
     f(x_t,t) - f(\bar{x}_t,t) \simeq Df(\bar{x}_{t_0}(t),t)  \delta x_t 
   \end{equation}
+  \pause
   Then we have the linear equation
   \begin{equation}
     d(\delta x_t) = Df(\bar{x}_{t_0} , t) \delta x_t dt + G(t) d\beta_t
@@ -289,10 +261,11 @@
     \delta y_{t_k} &= y_{t_k} - h(\bar{x}_{t_0}(t_k), t_k) + \nu_k \\
     \delta y_{t_k} &\simeq Dh(\bar{x}_{t_0}(t_k),t_k) \delta x_{t_k} + \nu_k
   \end{align}
+  \pause
   Then we can process the system
   \begin{align}
     d(\delta x_t) &= Df(\bar{x}_{t_0}(t),t) \delta x_t dt + G(t) d\beta_t \\
-    \delta y_{t_k} &\simeq Dh(\bar{x}_{t_0}(t_k),t_k) \delta x_{t_k} + \nu_k
+    \delta y_{t_k} & = Dh(\bar{x}_{t_0}(t_k),t_k) \delta x_{t_k} + \nu_k
   \end{align}
   with  linear filter.
 \end{frame}
@@ -318,6 +291,15 @@
   \end{align}
 
   then this is known as the \textbf{Extended Kalman Filter}
+\end{frame}
+
+\begin{frame}{In Code}
+
+\begin{figure}
+  \includegraphics[scale=0.3]{ekf_implementation.png}
+  \caption{The Extended Kalman Filter update in C++}
+
+\end{figure}
 \end{frame}
 
 \begin{frame}{Pros and Cons}
@@ -350,4 +332,68 @@
 
 \section{An Example}
 
+\begin{frame}{Orbit Determination}
+  The simulation will be filtering noisy measurements from a deterministic
+  system.
+
+  \pause
+  We have
+  \begin{align}
+    dx_t = f(x_t,t)dt \\
+    y_k = h(x_{t_k}, t) + \nu_t\\
+    \nu_t \sim N(0,Q) 
+  \end{align}
+
+\end{frame}
+\begin{frame}{Orbit Determination}
+  \begin{equation}
+    x_t = \begin{bmatrix}
+      x \\
+      y \\
+      \dot{x} \\
+      \dot{y} \\
+    \end{bmatrix}
+  \end{equation}
+  \begin{equation}
+    f(x_t,t) = \begin{bmatrix}
+      \dot{x} \\
+      \dot{y} \\
+      - \mu \frac{x}{x^2 + y^2} \\
+      - \mu \frac{y}{x^2 + y^2} \\
+    \end{bmatrix}
+  \end{equation}
+\end{frame}
+
+\begin{frame}
+  If $p$ gives the position of the sensor and
+  \begin{equation}
+    \bar{x} = \begin{bmatrix}
+      x \\
+      y
+    \end{bmatrix}
+  \end{equation}
+  then
+  \begin{equation}
+    h(x_t,t) = \begin{bmatrix}
+      \lVert \bar{x} - p \rVert \\
+      \frac{(x - p_1) \dot{x} + (y - p_2) \dot{y}}{\lVert \bar{x} - p \rVert }\\
+      \frac{x \cdot p}{\lVert x \rVert}
+    \end{bmatrix}
+  \end{equation}
+  \begin{equation}
+    Q_t = \begin{bmatrix}
+      n1 & 0 & 0 \\
+      0 & n2 & 0 \\
+      0 & 0 & n3
+  \end{bmatrix}
+  \end{equation}
+\end{frame}
+
+\begin{frame}
+  \begin{figure}
+    \includegraphics[scale=0.3]{sim_shot.png}
+    \caption{Measurements in Simulation}
+  \end{figure}
+
+\end{frame}
 \end{document}

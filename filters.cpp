@@ -26,8 +26,6 @@ arma::dvec KalmanFilter::update(double t, arma::vec observation){
                   P = matrix_model->extrapolate( t),
     R = measurement->covariance(t);
 
-  // std::cout << "observation " << observation << std::endl;
-  // std::cout << "M " << M << std::endl <<"P " << P <<std::endl << "R " << R << std::endl;
   // the Kalman gain
   const arma::dmat K = P * arma::trans(M) * arma::inv(M * P * arma::trans(M) + R);
 
@@ -36,19 +34,13 @@ arma::dvec KalmanFilter::update(double t, arma::vec observation){
   const arma::dvec old_state = model->extrapolate( t );
   //adjust
 
-  // std::cout << "old cov " << P << std::endl;
-  // std::cout << "old state " << old_state << std::endl;
-
   const arma::dmat KM = K*M;
   const arma::dmat I_KM = arma::eye(KM.n_rows,KM.n_cols) - KM;
   //correct with residual multiplied by Kalman Gain
   const arma::dvec new_state = old_state + K*(observation - M*old_state);
   //adjust covariance with the change in uncertainty caused by observation
   const arma::dmat new_covariance = I_KM*P*arma::trans(I_KM) + K*R*arma::trans(K);
-  // std::cout << "I_KM P I_KM^t \n" << I_KM*P*arma::trans(I_KM) << std::endl;
-  // std::cout << "KMP " << K*M*P << std::endl;
-  // std::cout << "new cov " << new_covariance << std::endl;
-  // std::cout << "new state " << new_state << std::endl;
+
   //now integrate from new initial estidmates
   model->set_initial_conditions(t , new_state );
   matrix_model->set_initial_conditions(t , new_covariance);
@@ -76,12 +68,15 @@ arma::dvec ExtendedKalmanFilter::update(double t, arma::vec observation) {
 
   arma::dvec error = perturbationProcessFilter.update(t, measurement_error);
 
-  arma::dvec state_estidmate = nominal_state + error;
+  arma::dvec state_estimate = nominal_state + error;
 
-  model->set_initial_conditions(t , state_estidmate);
+  model->set_initial_conditions(t , state_estimate);
 
-  perturbationProcessFilter.get_model()->set_initial_conditions(t,arma::dvec(nominal_state.size(),arma::fill::zeros));
-  return state_estidmate;
+  perturbationProcessFilter.get_model()->set_initial_conditions
+    (t,arma::dvec(nominal_state.size(),arma::fill::zeros));
+
+
+  return state_estimate;
 }
 
 //:::::::::::::::::::::::::::::::::

@@ -1,5 +1,3 @@
-
-
 \documentclass{beamer}
 
 \usepackage[utf8]{inputenc} \usepackage{bibentry,cite,amsmath,graphicx}
@@ -9,7 +7,7 @@
 \newcommand{\Var}{\operatorname{Var}} \newcommand{\Cov}{\operatorname{Cov}}
 \newtheorem{proposition}{proposition}
 % Information to be included in the title page:
-\title{The Kalman Filter} \author{Alexander Wittmond} \institute{University of
+\title{The Kalman-Bucy Filter} \author{Alexander Wittmond} \institute{University of
   Missouri} \date{\today}
 
 \AtBeginSection[] {
@@ -156,13 +154,14 @@
 \end{frame}
 
 \begin{frame}{The Solution To The Linear Discrete-Continuous Filtering Problem}
-  The minimum variance filter for consists of: \\
+  The Kalman-Bucy filter consists of: \\
   \only<1>{
     \begin{block}{Evolution for}
       \begin{align}
         \text{Conditional Mean } & \mathbb{E}[x_t \mid Y_{t_k}] = \hat{x} _t^{t_{k}}\\
-        \text{Conditional Variance } & \mathbb[(x_t - \hat{x}_t)(x_t - \hat{x}_t)^T \mid Y_{t_k}] = P_t^{t_k}
+        \text{Conditional Variance } & \mathbb{E}[(x_t - \hat{x}_t)(x_t - \hat{x}_t)^T \mid Y_{t_k}] = P_t^{t_k}
       \end{align}
+      given some prior $x_0$ and $P_0^0$.
     \end{block}
   }
   \only<2>{

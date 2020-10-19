@@ -23,25 +23,27 @@ LangevinEquationModel::linear_perturbation_model(double time,
 arma::dvec KalmanFilter::update(double t, arma::vec observation){
 
   const arma::dmat M = measurement->measurement_matrix(t),
-                  P = matrix_model->extrapolate( t),
     R = measurement->covariance(t);
 
-  // the Kalman gain
-  const arma::dmat K = P * arma::trans(M) * arma::inv(M * P * arma::trans(M) + R);
-
-  // std::cout << "K " << K << std::endl << "KM "<< K*M << std::endl;
-  //predict
+    //predict
   const arma::dvec old_state = model->extrapolate( t );
-  //adjust
+  const arma::dmat P = matrix_model->extrapolate(t);
 
-  const arma::dmat KM = K*M;
+  // the Kalman gain
+  const arma::dmat K =
+      P * arma::trans(M) * arma::inv(M * P * arma::trans(M) + R);
+
+  // adjust
+  const arma::dmat KM = K * M;
   const arma::dmat I_KM = arma::eye(KM.n_rows,KM.n_cols) - KM;
+
   //correct with residual multiplied by Kalman Gain
   const arma::dvec new_state = old_state + K*(observation - M*old_state);
+
   //adjust covariance with the change in uncertainty caused by observation
   const arma::dmat new_covariance = I_KM*P*arma::trans(I_KM) + K*R*arma::trans(K);
 
-  //now integrate from new initial estidmates
+  //now integrate from new initial estimates
   model->set_initial_conditions(t , new_state );
   matrix_model->set_initial_conditions(t , new_covariance);
 

@@ -92,7 +92,7 @@ bool Simulation::draw(const Cairo::RefPtr<Cairo::Context> &cr){
   if(!positions.empty()){
     const Gtk::Allocation allocation = area->get_allocation();
     const int w = allocation.get_width(), h = allocation.get_height();
-    cr->set_source_rgb(1, 1, 1);
+    cr->set_source_rgb(0.5, 0.5, 0.5);
     cr->rectangle(0, 0, w, h);
     cr->fill();
 
@@ -151,7 +151,7 @@ bool Simulation::draw(const Cairo::RefPtr<Cairo::Context> &cr){
     }
 
     cr->set_source_rgba(1, 1, 0, 1);
-    cr->set_line_width(0.05);
+    cr->set_line_width(0.03);
     cr->move_to(positions[0](0), positions[0](1));
     for (int i = 1; i < positions.size(); i++) {
       const arma::dvec &filtered_position = filtered_positions[i];
@@ -160,12 +160,16 @@ bool Simulation::draw(const Cairo::RefPtr<Cairo::Context> &cr){
     cr->stroke();
 
     cr->set_source_rgba(0, 1, 0, 1);
-    cr->set_line_width(0.05);
+    cr->set_line_width(0.03);
     cr->move_to(positions[0](0), positions[0](1));
     for (int i = 1; i < positions.size(); i++) {
       const arma::dvec &position = positions[i];
       cr->line_to(position(0), position(1));
     }
+    cr->stroke();
+
+    cr->arc(positions.back()(0), positions.back()(1), 0.05, 0, 2* pi_v<double>);
+    cr->close_path();
     cr->stroke();
 
   }

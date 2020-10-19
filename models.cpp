@@ -97,7 +97,7 @@ std::shared_ptr<LinearizeableMeasurement> RangeRateMeasurement::clone() {
 arma::dvec RangeRateMeasurement::measure(double time, arma::dvec state) {
   arma::dvec rvec = state.subvec(0, 1) - position;
   arma::dvec v = state.subvec(2, 3);
-  double r_inv = 1 / arma::norm(rvec);
+  double r_inv = 1 / arma::norm(rvec); 
   return arma::dvec{r_inv * (rvec(0) *v(0) + rvec(1) * v(1))};
 }
 
@@ -108,7 +108,12 @@ arma::dvec RangeRateMeasurement::measure(double time, arma::dvec state) {
 //::::::::::::::::::::::::::::::::::::::
 
 arma::dmat AnglesMeasurement::differential(double t, arma::dvec state) {
-  return arma::dmat{ {plane(0), plane(1), 0 ,0} };
+  arma::dvec rvec = state.subvec(0, 1) - position;
+  double n = arma::norm(rvec);
+  double n2 = n*n;
+  return arma::dmat{{(plane(0) - arma::dot(plane, rvec) * (rvec(0) / n)) / n2,
+                     (plane(1) - arma::dot(plane, rvec)*(rvec(1) / n)) / n2, 0,
+                     0}};
 }
 
 std::shared_ptr<LinearizeableMeasurement> AnglesMeasurement::clone() {
@@ -116,7 +121,8 @@ std::shared_ptr<LinearizeableMeasurement> AnglesMeasurement::clone() {
 }
 
 arma::dvec AnglesMeasurement::measure(double time, arma::dvec state){
-  return arma::dvec{arma::dot(plane, state.subvec(0, 1) - position)};
+  arma::dvec rvec = state.subvec(0, 1) - position;
+  return arma::dvec{ arma::dot(plane,rvec)/arma::norm(rvec) };
 }
 
 //::::::::::::::::::::::::::::::::::::::

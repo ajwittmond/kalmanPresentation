@@ -16,16 +16,14 @@ SET(CMAKE_CXX_FLAGS "-O3")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(Boost 1.72.0)
-find_package(Backtrace)
 # Setup CMake to use GTK+, tell the compiler where to look for headers
 # and to the linker where to look for libraries
-INCLUDE_DIRECTORIES(${Backtrace_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${GTK3_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
+INCLUDE_DIRECTORIES( ${GTK3_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR})
 LINK_DIRECTORIES(${GTK3_LIBRARY_DIRS} ${PROJECT_SOURCE_DIR})
 
 # add the executable
 add_executable(Filters main.cpp simulation.cpp simulationWindow.cpp filters.cpp models.cpp ini_parser.cpp)
 
 # Link the target to the GTK+ libraries
-TARGET_LINK_LIBRARIES(Filters armadillo dl backtrace ${BACKTRACE_LIBRARIES} ${GTK3_LIBRARIES})
-target_compile_options(Filters PRIVATE -g -ggdb -O0 -rdynamic  -export-dynamic  )
+TARGET_LINK_LIBRARIES(Filters armadillo  ${GTK3_LIBRARIES})
+target_compile_options(Filters PRIVATE  -rdynamic  -export-dynamic  )

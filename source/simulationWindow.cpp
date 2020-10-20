@@ -75,7 +75,7 @@ std::vector<Sensor> parse_sensors(ParsedIniFile & configFile){
 void SimulationWindow::initialize_simulation(Gtk::DrawingArea *area) {
   using namespace std::numbers;
 
-  ParsedIniFile configFile = parse_ini_file("./options.ini",BUFFER_SIZE);
+  ParsedIniFile configFile = parse_ini_file("res/options.ini",BUFFER_SIZE);
 
   arma::dvec initial_state =
     parse_vec(configFile["initial_conditions"][0]["initial_vector"]);
@@ -108,7 +108,7 @@ void SimulationWindow::initialize_simulation(Gtk::DrawingArea *area) {
 
 void SimulationWindow::from_file() throw() {
   builder = Gtk::Builder::create();
-  builder->add_from_file("simulation.glade");
+  builder->add_from_file("res/simulation.glade");
   Gtk::DrawingArea *area;
   builder->get_widget("drawing_area",area);
   builder->get_widget("window", this->window);

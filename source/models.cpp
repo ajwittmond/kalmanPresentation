@@ -5,7 +5,6 @@
 //::::::::::::::::::::::::::::::::
 // OrbitalModel implementation
 //::::::::::::::::::::::::::::::::
-// TODO: add better comments
 
 
 arma::dmat OrbitalModel::differential(double t, arma::vec state) {

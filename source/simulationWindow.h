@@ -7,7 +7,9 @@
 
 const double STEP_FREQUENCY = 60;
 
-// This is the top level class for the view
+/**
+ *  This class handles the windowing code and initializes the simulation.
+ */
 class SimulationWindow : public sigc::trackable {
 public:
   SimulationWindow() = default;

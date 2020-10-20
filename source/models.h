@@ -6,8 +6,17 @@
 
 const double MU = 3.986004418;
 
+/**
+ *  This describes the model for a particle orbiting a fixed point mass.
+ */
 class OrbitalModel : public LangevinEquationModel {
  public:
+  /**
+   *  Initializes the model
+   *  @param rate the sampling rate for integration in samples per second
+   *  @param current_t the starting time
+   *  @param current_state the initial state
+   */
   OrbitalModel(double rate, double current_t, arma::dvec current_state)
   : LangevinEquationModel{rate,current_t,current_state} {}
 
@@ -16,6 +25,9 @@ class OrbitalModel : public LangevinEquationModel {
 
   arma::dmat differential(double time, arma::dvec state) override;
 
+  /**
+   * Zero in this case since this is a deterministic model.
+   */
   arma::dmat noise_matrix(double t) override;
 
   arma::dvec derivative(double t, arma::dvec state) override;
@@ -23,6 +35,9 @@ class OrbitalModel : public LangevinEquationModel {
   std::shared_ptr<LangevinEquationModel> clone() override;
 };
 
+/**
+ *  The is the range measurement from a sensor with a fixed location.
+ */
 class RangeMeasurement : public LinearizeableMeasurement {
   arma::dvec position;
   arma::dmat covariance_mat;
@@ -43,6 +58,10 @@ public:
   }
 };
 
+
+/**
+ *  This is a range rate measurement from a fixed sensor.
+ */
 class RangeRateMeasurement : public LinearizeableMeasurement {
 private:
   arma::vec position;
@@ -65,6 +84,10 @@ public:
   arma::dmat covariance(double time) override { return covariance_mat; }
 };
 
+
+/**
+ *  This measures the angle cosine between an object and a fixed sensor
+ */
 class AnglesMeasurement : public LinearizeableMeasurement {
 private:
   arma::vec position;
@@ -76,9 +99,7 @@ private:
 public:
   AnglesMeasurement(arma::vec position, arma::dmat covariance_mat)
     : position{position}, covariance_mat{covariance_mat},plane(2) {
-    arma::dvec normal = position / arma::norm(position);
-    plane(0) = -normal(1);
-    plane(1) = normal(0);
+    plane = arma::normalise(position);
   }
 
   AnglesMeasurement(AnglesMeasurement &other)  = default;

@@ -96,7 +96,7 @@ public:
 /**
  * Abstract class for models of the type
  * \f[x_{n+1} = Ax_n + \nu_n \f]
- * where \f$nu_n \sim N(0,Q_k)\f$ i.i.d
+ * where \f$ \nu_n \sim N(0,Q_k)\f$ i.i.d
  */
 class LinearDiscreteModel : public Model<arma::dvec>{
  public:
@@ -134,7 +134,7 @@ public:
 /**
  * Abstract class for models of the type
  *  \f[dx = f(x,t)dt + d \beta_t \f]
- * where \f$nu_n \sim N(0,Q_k)\f$ i.i.d
+ * where \f$ \mathbb{E}[d\beta_t d\beta_t^T ] = Q(t) dt\f$ i.i.d
  */
 class LangevinEquationModel: public LinearNoiseModel{
  public:
@@ -170,6 +170,15 @@ public:
    */
   virtual arma::dmat transform_matrix(double t) = 0;
 
+  virtual arma::dvec extrapolate(double t) override{
+    if(current_state.is_zero()){ //early exit
+      current_t = t;
+      return current_state;
+    }else{
+      return Model<arma::dvec>::extrapolate(t);
+    }
+  }
+
   arma::dvec derivative(double t ,arma::vec state) override{
     return transform_matrix(t)*state;
   }
@@ -197,13 +206,13 @@ class Filter{
    /**
     * Update the filter with a new measurement and returns the new estidmate for the current time
     */
-   virtual arma::dvec update(double t, arma::vec) = 0;
+   virtual arma::dvec update(double t, arma::dvec) = 0;
 };
 
 /**
  * This is an abstract class for representing
  * measurents of a process \f$x_t\f$ of the form
- * \f$h(x_t,t) + \nu_t\f$ where $nu_t \sim N(0, Q_t)$
+ * \f$h(x_t,t) + \nu_t\f$ where \f$ nu_t \sim N(0, Q_t) \f$
  * Initialized with the dimension of measurement vector
  */
 class Measurement {
@@ -250,7 +259,7 @@ public:
 
 /**
  * A measurement given by the formula
- * \f$A_t x_t + \nu_t\f$ where $nu_t \sim N(0, Q_t)$
+ * \f$A_t x_t + \nu_t\f$ where \f$nu_t \sim N(0, Q_t)\f$
  **/
 class LinearMeasurement : public Measurement {
  public:
@@ -268,6 +277,10 @@ class LinearMeasurement : public Measurement {
    virtual arma::dmat measurement_matrix(double time) = 0;
 };
 
+/**
+ * The linearization produced by a linearizeable measurement.  The matrix
+ * should be the differential of the original measurement function.
+ */
 class LinearizedMeasurement : public LinearMeasurement{
   std::shared_ptr<LinearizeableMeasurement> measurement;
   std::shared_ptr<LangevinEquationModel> nominal_model;
@@ -285,6 +298,12 @@ public:
   }
 };
 
+
+/**
+ * Combines a collection of linear measurements into a single measurement.  The measurement
+ * matrix is produced by joining the rows of the constituent measurement matrices.  All the
+ * constituent measurements must measure from a state with the same dimension.
+ */
 class CompositeLinearMeasurement: public LinearMeasurement{
   std::vector<std::shared_ptr<LinearMeasurement>> measurements;
 
@@ -298,14 +317,32 @@ public:
   virtual arma::dmat measurement_matrix(double time) override;
 };
 
+
+/**
+ * Joins the rows of all the matrices in the passed vector to
+ * produce a new matrix.  The vector must be nonempty and all
+ * the passed matrices must have the same number of columns
+ */
 arma::dmat join_rows(std::vector<arma::dmat> mat);
 
+/**
+ * Creates a new matrix with all  the matrices in the  passed vector on the
+ * diagonal.  All the matrices must be square and the vector must be nonempty.
+ */
 arma::dmat block_diagonal(std::vector<arma::dmat> mat);
 
+/**
+ * Joins all the vectors in the passed std::vector to
+ * produce a new vector.  The vector must be nonempty.
+ */
 arma::dvec join_rows(std::vector<arma::dvec> vec);
 
 
-
+/**
+ *  Combines a collection of linearizeable measurement into a single measurement.  Then
+ *  measurement vector produced is the concatenation of the measurement vectors of the
+ *  constituent measurements.
+ */
 class CompositeLinearizeableMeasurement : public LinearizeableMeasurement {
   std::vector<std::shared_ptr<LinearizeableMeasurement>> measurements;
 

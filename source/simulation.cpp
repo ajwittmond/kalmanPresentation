@@ -13,10 +13,10 @@ Simulation::Simulation(Gtk::DrawingArea *area, std::shared_ptr<ExtendedKalmanFil
     : AreaController(area),
       filter(filter), current_entry{0}, prev_update_time{0},
       model(model), time{0}, time_step{time_step}, sensors{sensors},
-      earth("earth.png") {
+      earth("res/earth.png") {
   connect(*area);
   for (int i = 0; i < sensors.size(); i++) {
-    sensor_pictures.push_back(Picture("radar.png"));
+    sensor_pictures.push_back(Picture("res/radar.png"));
     const arma::dvec &position = sensors[i].position;
     const double angle = (sensors[i].start_angle + sensors[i].end_angle) / 2;
     sensor_pictures[i].set_position(position(0), position(1));
